@@ -36,6 +36,8 @@
 
 import pygame
 import numpy as np
+import time
+from abc import ABC, abstractmethod
 
 # Initialize Pygame
 pygame.init()
@@ -57,16 +59,15 @@ white = (255, 255, 255)
 black = (0, 0, 0)
 gray = (128, 128, 128)
 green = (0, 255, 0)
+font = pygame.font.Font(None, 24)
 
-# Button dimensions
+# Button properties
 button_height, button_margin = 50, 20
 button_texts = ["Start", "Stop", "Save", "Load"]
-# button_x, button_y = (width - button_width) // 2, height - button_height - 10
 
 # Refactored function to draw single button
 def draw_button(x, y, width, height, text):
     pygame.draw.rect(screen, green, (x, y, width, height))
-    font = pygame.font.Font(None, 24)
     text_surface = font.render(text, True, (255, 255, 255))
     text_rect = text_surface.get_rect(center=(x + width // 2, y + height // 2))
     screen.blit(text_surface, text_rect)
@@ -85,14 +86,6 @@ def create_buttons(screen_width, screen_height, button_height, button_margin, bu
         buttons.append((i, button_x, button_y, button_width, button_height))
 
     return buttons
-
-# def draw_button():
-#     pygame.draw.rect(screen, green, (button_x, button_y, button_width, button_height))
-#     font = pygame.font.Font(None, 36)
-#     text = font.render("Next Generation", True, black)
-#     text_rect = text.get_rect(center=(button_x + button_width // 2, button_y + button_height // 2))
-#     screen.blit(text, text_rect)
-
 
 
 def draw_grid():
@@ -131,31 +124,55 @@ def draw_cells():
                 pygame.draw.rect(screen, black, cell)
 
 #MYCODE
-#set up clock
-clock = pygame.time.Clock()
+#set up clock properties
+# clock = pygame.time.Clock()
+# clock_started = False
+# start_time = None
 
-buttons = create_buttons(width, height, button_height, button_margin, button_texts)
+# def display_timer():
+#     elapsed_time = int(time.time() - start_time) if start_time else 0
+#     timer_text = f"Time: {elapsed_time} seconds"
+#     timer_surface = font.render(timer_text, True, (0, 0, 0))
+#     timer_rect = timer_surface.get_rect(topright=(width - 10, 10))
+#     screen.blit(timer_surface, timer_rect)
 
+# Define state class
+class ClockState:
+    def __init__(self):
+        self.state = False
+
+    def start_clock(self):
+        self.state = True
+
+    def stop_clock(self):
+        self.state = False
+
+
+#Update game every 1 second
+def update_next_generation(clock_state, last_update_time):
+    current_time = time.time()
+    if clock_state.state and (current_time - last_update_time >= 1):
+        next_generation()
+        return current_time  # Update the timer when next_generation is executed
+    return last_update_time
+
+#Main game loop
 running = True
+clock_state = ClockState()  # State
+last_update_time = time.time()  # time from last update
+
 while running:
     screen.fill(white)
     draw_grid()
     draw_cells()
     buttons = create_buttons(width, height, button_height, button_margin, button_texts)
-    # draw_button()
+    #display_timer()
     pygame.display.flip()
+
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
-
-        # if event.type == pygame.MOUSEBUTTONDOWN:
-        #     if button_x <= event.pos[0] <= button_x + button_width and button_y <= event.pos[1] <= button_y + button_height:
-        #         next_generation()
-        #     else:
-        #         x, y = event.pos[0] // cell_width, event.pos[1] // cell_height
-        #         game_state[x, y] = not game_state[x, y]
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_x, mouse_y = event.pos
@@ -163,11 +180,19 @@ while running:
             # Check which button was clicked
             for i, button_x, button_y, button_width, button_height in buttons:
                 if button_x < mouse_x < button_x + button_width and button_y < mouse_y < button_y + button_height:
-                    next_generation()
+                    if i == 0: #Start button
+                        clock_state.start_clock()
+                    elif i == 1: #Pause bttn
+                        clock_state.stop_clock()
+                    elif i == 2: #Save bttn
+                        raise NotImplementedError("Button 3 logic not implemented")
+                    elif i == 3: #Load bttn
+                        raise NotImplementedError("Button 4 logic not implemented")
                 else:
                     x, y = event.pos[0] // cell_width, event.pos[1] // cell_height
                     game_state[x, y] = not game_state[x, y]
 
+    last_update_time = update_next_generation(clock_state, last_update_time)
 
 pygame.quit()
 
