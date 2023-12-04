@@ -19,7 +19,7 @@
 
 # General approach
 # 1. Plan & write down the general workflow
-#  1.1. Define Input&Output 
+#  1.1. Define Input&Output
 #  1.2. Consider adding validation
 # 2. Separate the main algorithms / actors in the code. Try to abstract as much common code as possible
 # 3. Define communication between the objects
@@ -29,14 +29,15 @@
 # 6. Refine if needed
 
 # Deadline - 15th of December 2023
-# Mail with: 
+# Mail with:
 # 1. short screen recording demonstrating the new features
 # 2. Linked code
-# 3. Short description of the changes. Which design patterns you used and how you applied them. 
+# 3. Short description of the changes. Which design patterns you used and how you applied them.
 
 import pygame
 import numpy as np
 import time
+import json
 from abc import ABC, abstractmethod
 
 # Initialize Pygame
@@ -123,6 +124,69 @@ def draw_cells():
             if game_state[x, y] == 1:
                 pygame.draw.rect(screen, black, cell)
 
+
+##SAVING & LOADING
+
+class FileReader(ABC):
+    def __init__(self, file_name):
+        self.file_name = file_name
+
+    @abstractmethod
+    def read(self) -> str:
+        pass
+
+class GameStateAdapter(ABC):
+    def __init__(self, data_source: FileReader):
+        self.data_source = data_source
+
+    @abstractmethod
+    def get_game_state(self) -> np.ndarray:
+        pass
+
+# Specific implementation of the adpater to read JSON Source data
+class JSONGameStateAdapter(GameStateAdapter):
+    def get_game_state(self):
+        try:
+            data = json.loads(self.data_source.read())
+            updated_game_state = np.array(data)
+            return updated_game_state
+        except FileNotFoundError:
+            print(f"File not found: {self.data_source.file_name}")
+            return None
+        except json.JSONDecodeError:
+            print(f"Wrong file format: {self.data_source.file_name}")
+            return None
+
+class JSONReader(FileReader):
+    def read(self):
+        try:
+            with open(self.file_name, 'r') as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"File not found: {self.file_name}")
+            return ''
+
+class JSONGameStateReader:
+    def __init__(self, file_name):
+        self.json_reader = JSONReader(file_name)
+        self.json_adapter = JSONGameStateAdapter(self.json_reader)
+
+    def load_game_state(self, global_game_state):
+        updated_game_state = self.json_adapter.get_game_state()
+        if updated_game_state is not None:
+            np.copyto(global_game_state, updated_game_state)
+            print("Game loaded")
+        else:
+            print("Loading failed")
+
+
+
+def save_to_json(game_state):
+    game_state_list = game_state.tolist()
+    with open('game_state.json', 'w') as json_file:
+        json.dump(game_state_list, json_file)
+
+
 #MYCODE
 #set up clock properties
 # clock = pygame.time.Clock()
@@ -148,18 +212,30 @@ class ClockState:
         self.state = False
 
 
+class ClockTicks:
+    def __init__(self):
+        self.number_of_ticks = 0
+    def add(self):
+        self.number_of_ticks += 1
+    def display(self):
+        print
+        self.number_of_ticks
+
 #Update game every 1 second
-def update_next_generation(clock_state, last_update_time):
+def update_next_generation(clock_state, last_update_time, clock_ticks):
     current_time = time.time()
     if clock_state.state and (current_time - last_update_time >= 1):
         next_generation()
+        clock_ticks.add()
         return current_time  # Update the timer when next_generation is executed
     return last_update_time
 
 #Main game loop
 running = True
 clock_state = ClockState()  # State
+clock_ticks = ClockTicks()
 last_update_time = time.time()  # time from last update
+json_game_state_reader = JSONGameStateReader('game_state.json')
 
 while running:
     screen.fill(white)
@@ -168,7 +244,6 @@ while running:
     buttons = create_buttons(width, height, button_height, button_margin, button_texts)
     #display_timer()
     pygame.display.flip()
-
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -185,14 +260,15 @@ while running:
                     elif i == 1: #Pause bttn
                         clock_state.stop_clock()
                     elif i == 2: #Save bttn
-                        raise NotImplementedError("Button 3 logic not implemented")
+                        save_to_json(game_state)
                     elif i == 3: #Load bttn
-                        raise NotImplementedError("Button 4 logic not implemented")
+                        json_game_state_reader.load_game_state(game_state)
                 else:
                     x, y = event.pos[0] // cell_width, event.pos[1] // cell_height
                     game_state[x, y] = not game_state[x, y]
 
-    last_update_time = update_next_generation(clock_state, last_update_time)
+    last_update_time = update_next_generation(clock_state, last_update_time, clock_ticks)
+
 
 pygame.quit()
 
