@@ -185,41 +185,51 @@ def save_to_json(game_state):
     game_state_list = game_state.tolist()
     with open('game_state.json', 'w') as json_file:
         json.dump(game_state_list, json_file)
+    print("Game saved to JSON")
 
 
-#MYCODE
-#set up clock properties
-# clock = pygame.time.Clock()
-# clock_started = False
-# start_time = None
-
-# def display_timer():
-#     elapsed_time = int(time.time() - start_time) if start_time else 0
-#     timer_text = f"Time: {elapsed_time} seconds"
-#     timer_surface = font.render(timer_text, True, (0, 0, 0))
-#     timer_rect = timer_surface.get_rect(topright=(width - 10, 10))
-#     screen.blit(timer_surface, timer_rect)
 
 # Define state class
+class Observer(ABC):
+    @abstractmethod
+    def update(self, subject):
+        pass
+
 class ClockState:
     def __init__(self):
         self.state = False
+        self.observers = []
 
     def start_clock(self):
         self.state = True
+        self.observers = []
 
     def stop_clock(self):
         self.state = False
+        self.observers = []
+
+    def attach(self, observer):
+        self.observers.append(observer)
+
+    def notify_observers(self):
+        for observer in self.observers:
+            observer.update(self)
 
 
-class ClockTicks:
+class ClockTicks(Observer):
     def __init__(self):
         self.number_of_ticks = 0
     def add(self):
         self.number_of_ticks += 1
+    def get_ticks(self):
+        return self.number_of_ticks
     def display(self):
-        print
-        self.number_of_ticks
+        print(f"Time: {self.number_of_ticks}")
+    def update(self, subject):
+        if subject.state:
+            self.add()
+            self.display()
+
 
 #Update game every 1 second
 def update_next_generation(clock_state, last_update_time, clock_ticks):
@@ -229,6 +239,11 @@ def update_next_generation(clock_state, last_update_time, clock_ticks):
         clock_ticks.add()
         return current_time  # Update the timer when next_generation is executed
     return last_update_time
+
+def display_ticks():
+    text = font.render(f"Ticks: {clock_ticks.get_ticks()}", True, green)
+    text_rect = text.get_rect(topright=(width - 10, 10))
+    screen.blit(text, text_rect)
 
 #Main game loop
 running = True
@@ -241,8 +256,8 @@ while running:
     screen.fill(white)
     draw_grid()
     draw_cells()
+    display_ticks()
     buttons = create_buttons(width, height, button_height, button_margin, button_texts)
-    #display_timer()
     pygame.display.flip()
 
     for event in pygame.event.get():
